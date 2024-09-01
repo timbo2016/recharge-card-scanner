@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Recharge Card Scanner</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Recharge Scanner</h1>
+            <button id="helpButton" class="icon-button"><i class="fas fa-question-circle"></i></button>
+        </header>
+        <main>
+            <div class="input-group">
+                <i class="fas fa-mobile-alt"></i>
+                <input type="tel" id="mobileNumber" placeholder="Enter mobile number" inputmode="tel">
+                <button id="clearMobile" class="clear-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="input-group">
+                <i class="fas fa-hashtag"></i>
+                <input type="text" id="ussdPrefix" placeholder="Enter USSD prefix (e.g., 555)" inputmode="numeric">
+                <button id="clearUSSD" class="clear-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <button id="scanButton" class="primary-button">
+                <i class="fas fa-camera"></i> Scan Recharge Card
+            </button>
+            <div id="videoContainer">
+                <video id="video" playsinline autoplay></video>
+                <canvas id="canvas"></canvas>
+            </div>
+            <div id="scanResult">
+                <h2>Scanned Result</h2>
+                <p id="resultText"></p>
+                <div id="loadingIndicator" class="loading" style="display: none;"></div>
+            </div>
+            <button id="dialButton" class="primary-button" disabled>
+                <i class="fas fa-phone"></i> Dial USSD
+            </button>
+            <div id="history">
+                <h3>Recent Scans</h3>
+                <ul id="historyList"></ul>
+            </div>
+        </main>
+    </div>
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <button class="close"><i class="fas fa-times"></i></button>
+            <h2>How to Use the Recharge Card Scanner</h2>
+            <ol>
+                <li>Enter your mobile number in the first input field.</li>
+                <li>Enter the USSD prefix for recharging in the second input field.</li>
+                <li>Click "Scan Recharge Card" and allow camera access when prompted.</li>
+                <li>Point your camera at the recharge card and click "Capture".</li>
+                <li>Wait for the app to process the image and extract the recharge key.</li>
+                <li>If successful, click "Dial USSD" to initiate the recharge process.</li>
+            </ol>
+            <p>Note: Make sure the recharge card is well-lit and clearly visible in the camera frame for best results.</p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
