@@ -1,30 +1,26 @@
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const scanButton = document.getElementById('scanButton');
+const dialButton = document.getElementById('dialButton');
+const clearResultsButton = document.getElementById('clearResultsButton');
 const resultText = document.getElementById('resultText');
 const mobileNumberInput = document.getElementById('mobileNumber');
-const ussdPrefixInput = document.getElementById('ussdPrefix');
-const dialButton = document.getElementById('dialButton');
 const clearMobileButton = document.getElementById('clearMobile');
-const clearUSSDButton = document.getElementById('clearUSSD');
 const loadingIndicator = document.getElementById('loadingIndicator');
-const historyList = document.getElementById('historyList');
-const helpButton = document.getElementById('helpButton');
-const helpModal = document.getElementById('helpModal');
-const closeModal = document.querySelector('.close');
 
 let stream = null;
 let rechargeKey = null;
 
 scanButton.addEventListener('click', startScanning);
 dialButton.addEventListener('click', dialUSSD);
+clearResultsButton.addEventListener('click', clearResults);
 clearMobileButton.addEventListener('click', () => clearInput(mobileNumberInput));
-clearUSSDButton.addEventListener('click', () => clearInput(ussdPrefixInput));
-helpButton.addEventListener('click', showHelpModal);
-closeModal.addEventListener('click', hideHelpModal);
+mobileNumberInput.addEventListener('input', updateDialButtonState);
 
 async function startScanning() {
+    console.log('Starting scanning process');
     try {
+        console.log('Requesting camera access');
         stream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
                 facingMode: 'environment',
@@ -32,12 +28,15 @@ async function startScanning() {
                 height: { ideal: 720 }
             } 
         });
+        console.log('Camera access granted');
         video.srcObject = stream;
         await video.play();
+        console.log('Video playback started');
         scanButton.textContent = 'Capture';
         scanButton.removeEventListener('click', startScanning);
         scanButton.addEventListener('click', captureImage);
     } catch (err) {
+        console.error('Error in startScanning:', err);
         handleError('Error accessing camera', err);
     }
 }
@@ -67,6 +66,8 @@ function captureImage() {
 async function performOCR(imageDataUrl) {
     resultText.textContent = 'Processing...';
     loadingIndicator.style.display = 'inline-block';
+    dialButton.disabled = true;
+    clearResultsButton.style.display = 'none';
     
     try {
         const result = await Tesseract.recognize(imageDataUrl, 'eng', {
@@ -76,11 +77,19 @@ async function performOCR(imageDataUrl) {
         const text = result.data.text.trim();
         rechargeKey = extractRechargeKey(text);
         
-        updateAfterOCR(!!rechargeKey);
+        if (rechargeKey) {
+            resultText.textContent = `Recharge Key: ${rechargeKey}`;
+            updateDialButtonState();
+        } else {
+            resultText.textContent = 'No valid recharge key found. Please try again.';
+            dialButton.disabled = true;
+        }
     } catch (err) {
         handleError('OCR Error', err);
+        dialButton.disabled = true;
     } finally {
         loadingIndicator.style.display = 'none';
+        updateDialButtonState();
     }
 }
 
@@ -92,26 +101,22 @@ function extractRechargeKey(text) {
 
 function dialUSSD() {
     const mobileNumber = mobileNumberInput.value.trim();
-    const ussdPrefix = ussdPrefixInput.value.trim();
     
-    if (!validateInputs(rechargeKey, mobileNumber, ussdPrefix)) {
+    if (!validateInputs(rechargeKey, mobileNumber)) {
         return;
     }
     
-    const cleanPrefix = ussdPrefix.replace(/[*#]/g, '');
-    const ussdCode = `*${cleanPrefix}*${rechargeKey}*${mobileNumber}#`;
+    const ussdCode = `*121*${rechargeKey}*${mobileNumber}#`;
     
     try {
         window.location.href = `tel:${encodeURIComponent(ussdCode)}`;
         resultText.textContent = `Dialing: ${ussdCode}`;
-        rechargeKey = null;
-        dialButton.disabled = true;
     } catch (err) {
         handleError('Error initiating call', err);
     }
 }
 
-function validateInputs(rechargeKey, mobileNumber, ussdPrefix) {
+function validateInputs(rechargeKey, mobileNumber) {
     if (!rechargeKey) {
         showError('Please scan a recharge card first.');
         return false;
@@ -122,18 +127,8 @@ function validateInputs(rechargeKey, mobileNumber, ussdPrefix) {
         return false;
     }
     
-    if (!ussdPrefix) {
-        showError('Please enter a USSD prefix.');
-        return false;
-    }
-    
     if (!/^\d+$/.test(mobileNumber)) {
         showError('Invalid mobile number. Please enter digits only.');
-        return false;
-    }
-    
-    if (!/^\d+$/.test(ussdPrefix.replace(/[*#]/g, ''))) {
-        showError('Invalid USSD prefix. Please enter digits only, optionally starting with *.');
         return false;
     }
     
@@ -142,46 +137,25 @@ function validateInputs(rechargeKey, mobileNumber, ussdPrefix) {
 
 function updateDialButtonState() {
     const mobileNumber = mobileNumberInput.value.trim();
-    const ussdPrefix = ussdPrefixInput.value.trim();
-    dialButton.disabled = !(rechargeKey && mobileNumber && ussdPrefix);
-}
-
-function updateAfterOCR(success) {
-    if (success) {
-        resultText.textContent = `Recharge Key: ${rechargeKey}`;
-        resultText.classList.add('success');
-        addToHistory(rechargeKey);
-    } else {
-        showError('No valid recharge key found. Please try again.');
-        rechargeKey = null;
-    }
-    updateDialButtonState();
-}
-
-function addToHistory(key) {
-    const li = document.createElement('li');
-    li.textContent = key;
-    historyList.prepend(li);
-    
-    // Keep only the last 5 items
-    while (historyList.children.length > 5) {
-        historyList.removeChild(historyList.lastChild);
-    }
+    dialButton.disabled = !(rechargeKey && mobileNumber);
+    clearResultsButton.style.display = rechargeKey ? 'block' : 'none';
 }
 
 function handleError(message, error) {
     console.error(`${message}:`, error);
-    showError(`${message}. Please try again.`);
-    updateDialButtonState();
+    let errorMessage = `${message}. `;
+    if (error.name === 'NotAllowedError') {
+        errorMessage += 'Camera permission was denied. Please grant camera access and try again.';
+    } else if (error.name === 'NotFoundError') {
+        errorMessage += 'No camera found on your device.';
+    } else {
+        errorMessage += 'Please try again or use a different device/browser.';
+    }
+    showError(errorMessage);
 }
 
 function showError(message) {
     resultText.textContent = message;
-    resultText.classList.remove('success');
-    resultText.classList.add('error');
-    setTimeout(() => {
-        resultText.classList.remove('error');
-    }, 3000);
 }
 
 function clearInput(input) {
@@ -189,25 +163,28 @@ function clearInput(input) {
     updateDialButtonState();
 }
 
-function showHelpModal() {
-    helpModal.style.display = 'block';
+function clearResults() {
+    rechargeKey = null;
+    resultText.textContent = '';
+    dialButton.disabled = true;
+    updateDialButtonState();
 }
 
-function hideHelpModal() {
-    helpModal.style.display = 'none';
-}
-
-// Close the modal when clicking outside of it
-window.onclick = function(event) {
-    if (event.target == helpModal) {
-        hideHelpModal();
+// Check for camera support
+function checkCameraSupport() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showError('Your browser does not support camera access. Please use a modern browser.');
+        scanButton.disabled = true;
     }
 }
+
+// Call this function when the page loads
+window.addEventListener('load', checkCameraSupport);
 
 // Add touch event listeners for better mobile interaction
 scanButton.addEventListener('touchstart', function(e) {
     e.preventDefault();
-    this.style.backgroundColor = '#45a049';
+    this.style.backgroundColor = '#3a7bc8';
 });
 
 scanButton.addEventListener('touchend', function(e) {
@@ -218,7 +195,7 @@ scanButton.addEventListener('touchend', function(e) {
 dialButton.addEventListener('touchstart', function(e) {
     if (!this.disabled) {
         e.preventDefault();
-        this.style.backgroundColor = '#45a049';
+        this.style.backgroundColor = '#3a7bc8';
     }
 });
 
@@ -238,3 +215,14 @@ document.addEventListener('touchend', function(event) {
     }
     lastTouchEnd = now;
 }, false);
+
+// Add touch event listener for the clear results button
+clearResultsButton.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    this.style.backgroundColor = '#d0d0d0';
+});
+
+clearResultsButton.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    this.style.backgroundColor = '';
+});
