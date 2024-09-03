@@ -120,6 +120,7 @@ function dialUSSD() {
     }
     
     const ussdCode = `*121*${rechargeKey}*${mobileNumber}#`;
+    console.log(`Dialing USSD code: ${ussdCode}`);
     
     try {
         window.location.href = `tel:${encodeURIComponent(ussdCode)}`;
@@ -140,8 +141,10 @@ function validateInputs(rechargeKey, mobileNumber) {
         return false;
     }
     
-    if (!/^\d+$/.test(mobileNumber)) {
-        showError('Invalid mobile number. Please enter digits only.');
+    // Validate phone number format: 077xxxxxxx or 078xxxxxxx
+    const phoneNumberPattern = /^(077|078)\d{7}$/;
+    if (!phoneNumberPattern.test(mobileNumber)) {
+        showError('Invalid mobile number. Please enter a valid number in the format 077xxxxxxx or 078xxxxxxx.');
         return false;
     }
     
@@ -150,7 +153,9 @@ function validateInputs(rechargeKey, mobileNumber) {
 
 function updateDialButtonState() {
     const mobileNumber = mobileNumberInput.value.trim();
-    dialButton.disabled = !(rechargeKey && mobileNumber);
+    const isDialButtonEnabled = rechargeKey && mobileNumber && /^(077|078)\d{7}$/.test(mobileNumber);
+    dialButton.disabled = !isDialButtonEnabled;
+    console.log(`Dial button state updated: ${isDialButtonEnabled ? 'enabled' : 'disabled'}`);
     clearResultsButton.style.display = rechargeKey ? 'block' : 'none';
 }
 
