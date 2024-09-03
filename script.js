@@ -31,15 +31,17 @@ contrastSlider.addEventListener('input', updateCameraSettings);
 
 async function startCamera() {
     try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        populateCameraSelect(videoDevices);
+        const constraints = {
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
 
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined }
-        });
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
-        await video.play();
+        video.play();
 
         const track = stream.getVideoTracks()[0];
         imageCapture = new ImageCapture(track);
@@ -47,9 +49,16 @@ async function startCamera() {
         startButton.disabled = true;
         captureButton.disabled = false;
         updateCameraCapabilities();
+
+        // Enumerate devices after successfully starting the camera
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        populateCameraSelect(videoDevices);
+
+        console.log('Camera started successfully');
     } catch (error) {
         console.error('Error starting camera:', error);
-        showError('Failed to start camera. Please make sure you have granted camera permissions.');
+        showError(`Failed to start camera: ${error.message}. Please make sure you have granted camera permissions.`);
     }
 }
 
@@ -71,21 +80,23 @@ async function switchCamera() {
 }
 
 async function updateCameraCapabilities() {
-    const capabilities = imageCapture.track.getCapabilities();
+    const track = imageCapture.track;
+    const capabilities = track.getCapabilities();
+    const settings = track.getSettings();
     
-    if (capabilities.zoom) {
+    if ('zoom' in capabilities) {
         zoomSlider.min = capabilities.zoom.min;
         zoomSlider.max = capabilities.zoom.max;
-        zoomSlider.value = capabilities.zoom.min;
+        zoomSlider.step = capabilities.zoom.step;
+        zoomSlider.value = settings.zoom;
         zoomSlider.disabled = false;
     } else {
         zoomSlider.disabled = true;
     }
 
-    // Note: brightness and contrast are not typically available as camera settings
-    // They are included here for demonstration purposes, but may not work on most devices
-    brightnessSlider.disabled = !capabilities.brightness;
-    contrastSlider.disabled = !capabilities.contrast;
+    // Brightness and contrast are not typically available as camera settings
+    brightnessSlider.disabled = true;
+    contrastSlider.disabled = true;
 }
 
 async function updateCameraSettings() {
@@ -96,18 +107,6 @@ async function updateCameraSettings() {
         zoomSlider.disabled = true;
     } else {
         settings.zoom = parseFloat(zoomSlider.value);
-    }
-
-    if (!track.getCapabilities().brightness) {
-        brightnessSlider.disabled = true;
-    } else {
-        settings.brightness = parseFloat(brightnessSlider.value);
-    }
-
-    if (!track.getCapabilities().contrast) {
-        contrastSlider.disabled = true;
-    } else {
-        settings.contrast = parseFloat(contrastSlider.value);
     }
 
     try {
@@ -175,12 +174,8 @@ function dialUSSD() {
     const ussdCode = `*121*${rechargeKey}*${mobileNumber}#`;
     console.log(`Dialing USSD code: ${ussdCode}`);
     
-    try {
-        window.location.href = `tel:${encodeURIComponent(ussdCode)}`;
-        resultText.textContent = `Dialing: ${ussdCode}`;
-    } catch (err) {
-        handleError('Error initiating call', err);
-    }
+    window.location.href = `tel:${encodeURIComponent(ussdCode)}`;
+    resultText.textContent = `Dialing: ${ussdCode}`;
 }
 
 function validateInputs(rechargeKey, mobileNumber) {
@@ -231,6 +226,7 @@ function handleError(message, error) {
 
 function showError(message) {
     resultText.textContent = message;
+    resultText.classList.add('error');
 }
 
 function clearInput(input) {
@@ -242,58 +238,19 @@ function clearResults() {
     rechargeKey = null;
     resultText.textContent = '';
     dialButton.disabled = true;
+    capturedImage.style.display = 'none';
     updateDialButtonState();
 }
 
-// Check for camera support
+// Check for camera support when the page loads
+window.addEventListener('load', checkCameraSupport);
+
 function checkCameraSupport() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         showError('Your browser does not support camera access. Please use a modern browser.');
         startButton.disabled = true;
     }
 }
-
-// Call this function when the page loads
-window.addEventListener('load', checkCameraSupport);
-
-// Add touch event listeners for better mobile interaction
-startButton.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    this.style.backgroundColor = '#3a7bc8';
-});
-
-startButton.addEventListener('touchend', function(e) {
-    e.preventDefault();
-    this.style.backgroundColor = '';
-});
-
-captureButton.addEventListener('touchstart', function(e) {
-    if (!this.disabled) {
-        e.preventDefault();
-        this.style.backgroundColor = '#3a7bc8';
-    }
-});
-
-captureButton.addEventListener('touchend', function(e) {
-    if (!this.disabled) {
-        e.preventDefault();
-        this.style.backgroundColor = '';
-    }
-});
-
-dialButton.addEventListener('touchstart', function(e) {
-    if (!this.disabled) {
-        e.preventDefault();
-        this.style.backgroundColor = '#3a7bc8';
-    }
-});
-
-dialButton.addEventListener('touchend', function(e) {
-    if (!this.disabled) {
-        e.preventDefault();
-        this.style.backgroundColor = '';
-    }
-});
 
 // Prevent zooming on double-tap for iOS devices
 let lastTouchEnd = 0;
@@ -304,15 +261,4 @@ document.addEventListener('touchend', function(event) {
     }
     lastTouchEnd = now;
 }, false);
-
-// Add touch event listener for the clear results button
-clearResultsButton.addEventListener('touchstart', function(e) {
-    e.preventDefault();
-    this.style.backgroundColor = '#d0d0d0';
-});
-
-clearResultsButton.addEventListener('touchend', function(e) {
-    e.preventDefault();
-    this.style.backgroundColor = '';
-});
 
