@@ -17,8 +17,11 @@
             <button id="clearMobile" class="clear-btn"><i class="fas fa-times"></i></button>
         </div>
         <div class="button-group">
-            <button id="scanButton" class="primary-button">
-                <i class="fas fa-camera"></i> Scan Recharge Card
+            <button id="startButton" class="primary-button">
+                <i class="fas fa-video"></i> Start Camera
+            </button>
+            <button id="captureButton" class="primary-button" disabled>
+                <i class="fas fa-camera"></i> Capture Image
             </button>
             <button id="dialButton" class="primary-button" disabled>
                 <i class="fas fa-phone"></i> Dial USSD
@@ -31,15 +34,26 @@
             <video id="video" playsinline autoplay></video>
             <canvas id="canvas"></canvas>
         </div>
+        <div id="cameraControls">
+            <select id="cameraSelect"></select>
+            <div>
+                <label for="zoomSlider">Zoom:</label>
+                <input type="range" id="zoomSlider" min="100" max="500" step="10" value="100">
+            </div>
+            <div>
+                <label for="brightnessSlider">Brightness:</label>
+                <input type="range" id="brightnessSlider" min="0" max="200" step="10" value="100">
+            </div>
+            <div>
+                <label for="contrastSlider">Contrast:</label>
+                <input type="range" id="contrastSlider" min="0" max="200" step="10" value="100">
+            </div>
+        </div>
         <div id="scanResult">
             <p id="resultText"></p>
             <div id="loadingIndicator" class="loading" style="display: none;"></div>
         </div>
         <img id="capturedImage" alt="Captured Image" style="display: none;">
-        <div>
-            <label for="zoomSlider">Zoom:</label>
-            <input type="range" id="zoomSlider" min="1" max="10" step="0.1">
-        </div>
     </div>
     <script src="script.js"></script>
 </body>
