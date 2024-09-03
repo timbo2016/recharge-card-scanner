@@ -10,6 +10,7 @@ const loadingIndicator = document.getElementById('loadingIndicator');
 
 let stream = null;
 let rechargeKey = null;
+let currentFacingMode = 'environment';
 
 scanButton.addEventListener('click', startScanning);
 dialButton.addEventListener('click', dialUSSD);
@@ -18,15 +19,10 @@ clearMobileButton.addEventListener('click', () => clearInput(mobileNumberInput))
 mobileNumberInput.addEventListener('input', updateDialButtonState);
 
 async function startScanning() {
-    console.log('Starting scanning process');
     try {
-        console.log('Requesting camera access');
         stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                facingMode: 'environment',
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            } 
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false
         });
         console.log('Camera access granted');
         video.srcObject = stream;
@@ -36,7 +32,7 @@ async function startScanning() {
         scanButton.removeEventListener('click', startScanning);
         scanButton.addEventListener('click', captureImage);
     } catch (err) {
-        console.error('Error in startScanning:', err);
+        console.error('Error accessing camera:', err);
         handleError('Error accessing camera', err);
     }
 }
@@ -148,8 +144,12 @@ function handleError(message, error) {
         errorMessage += 'Camera permission was denied. Please grant camera access and try again.';
     } else if (error.name === 'NotFoundError') {
         errorMessage += 'No camera found on your device.';
+    } else if (error.name === 'NotReadableError') {
+        errorMessage += 'Camera is already in use by another application.';
+    } else if (error.name === 'OverconstrainedError') {
+        errorMessage += 'Camera does not satisfy the resolution constraints.';
     } else {
-        errorMessage += 'Please try again or use a different device/browser.';
+        errorMessage += `Error: ${error.message}`;
     }
     showError(errorMessage);
 }
