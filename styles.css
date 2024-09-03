@@ -141,20 +141,16 @@ input[type="tel"]:focus {
 #videoContainer {
     position: relative;
     width: 100%;
-    height: 0;
-    padding-bottom: 75%;
-    overflow: hidden;
+    height: auto;
     margin-top: 20px;
     border-radius: 10px;
+    overflow: hidden;
 }
 
 #video, #canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
+    display: block;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
     border-radius: 10px;
 }
 
@@ -171,11 +167,20 @@ input[type="tel"]:focus {
 
 #cameraControls label {
     font-weight: bold;
+    margin-bottom: 5px; /* Added margin for better spacing */
 }
 
 #cameraControls select,
 #cameraControls input[type="range"] {
     width: 100%;
+    padding: 8px; /* Added padding for better touch targets */
+    border-radius: 5px; /* Added border-radius for consistency */
+    border: 1px solid var(--light-gray); /* Added border for better visibility */
+}
+
+/* Added styles for resolution options */
+#resolutionSelect {
+    margin-bottom: 10px;
 }
 
 #scanResult {
