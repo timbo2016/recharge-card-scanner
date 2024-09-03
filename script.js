@@ -10,7 +10,6 @@ const loadingIndicator = document.getElementById('loadingIndicator');
 
 let stream = null;
 let rechargeKey = null;
-let currentFacingMode = 'environment';
 
 scanButton.addEventListener('click', startScanning);
 dialButton.addEventListener('click', dialUSSD);
@@ -19,8 +18,9 @@ clearMobileButton.addEventListener('click', () => clearInput(mobileNumberInput))
 mobileNumberInput.addEventListener('input', updateDialButtonState);
 
 async function startScanning() {
+    console.log('startScanning function called');
     try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
+        stream = await navigator.mediaDevices.getUserMedia({
             video: { facingMode: { ideal: 'environment' } },
             audio: false
         });
@@ -33,7 +33,24 @@ async function startScanning() {
         scanButton.addEventListener('click', captureImage);
     } catch (err) {
         console.error('Error accessing camera:', err);
-        handleError('Error accessing camera', err);
+        if (err.name === 'OverconstrainedError') {
+            // Retry with the default camera if the preferred one is not available
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: false
+                });
+                video.srcObject = stream;
+                await video.play();
+                scanButton.textContent = 'Capture';
+                scanButton.removeEventListener('click', startScanning);
+                scanButton.addEventListener('click', captureImage);
+            } catch (retryErr) {
+                handleError('Retry Error: Camera access failed', retryErr);
+            }
+        } else {
+            handleError('Error accessing camera', err);
+        }
     }
 }
 
