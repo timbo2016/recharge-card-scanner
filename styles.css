@@ -96,18 +96,12 @@ input[type="tel"]:focus {
 }
 
 .primary-button, .secondary-button {
-    width: 100%;
-    padding: 12px;
+    padding: 12px 20px;
     border: none;
     border-radius: 25px;
     font-size: 16px;
-    font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10; /* Ensure buttons are on top */
 }
 
 .primary-button {

@@ -7,8 +7,11 @@ const resultText = document.getElementById('resultText');
 const mobileNumberInput = document.getElementById('mobileNumber');
 const clearMobileButton = document.getElementById('clearMobile');
 const loadingIndicator = document.getElementById('loadingIndicator');
+const capturedImage = document.getElementById('capturedImage');
+const zoomSlider = document.getElementById('zoomSlider');
 
 let stream = null;
+let imageCapture = null;
 let rechargeKey = null;
 
 scanButton.addEventListener('click', startScanning);
@@ -16,6 +19,7 @@ dialButton.addEventListener('click', dialUSSD);
 clearResultsButton.addEventListener('click', clearResults);
 clearMobileButton.addEventListener('click', () => clearInput(mobileNumberInput));
 mobileNumberInput.addEventListener('input', updateDialButtonState);
+zoomSlider.addEventListener('input', updateZoom);
 
 async function startScanning() {
     console.log('startScanning function called');
@@ -28,61 +32,60 @@ async function startScanning() {
         video.srcObject = stream;
         await video.play();
         console.log('Video playback started');
+        const mediaStreamTrack = stream.getVideoTracks()[0];
+        imageCapture = new ImageCapture(mediaStreamTrack);
+        console.log(imageCapture);
+        setZoomCapabilities(mediaStreamTrack);
         scanButton.textContent = 'Capture';
         scanButton.removeEventListener('click', startScanning);
         scanButton.addEventListener('click', captureImage);
     } catch (err) {
         console.error('Error accessing camera:', err);
-        if (err.name === 'OverconstrainedError') {
-            // Retry with the default camera if the preferred one is not available
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: false
-                });
-                video.srcObject = stream;
-                await video.play();
-                scanButton.textContent = 'Capture';
-                scanButton.removeEventListener('click', startScanning);
-                scanButton.addEventListener('click', captureImage);
-            } catch (retryErr) {
-                handleError('Retry Error: Camera access failed', retryErr);
-            }
-        } else {
-            handleError('Error accessing camera', err);
-        }
+        handleError('Error accessing camera', err);
     }
+}
+
+function setZoomCapabilities(mediaStreamTrack) {
+    const capabilities = mediaStreamTrack.getCapabilities();
+    const settings = mediaStreamTrack.getSettings();
+    if (capabilities.zoom) {
+        zoomSlider.min = capabilities.zoom.min;
+        zoomSlider.max = capabilities.zoom.max;
+        zoomSlider.step = capabilities.zoom.step;
+        zoomSlider.value = settings.zoom;
+    }
+}
+
+function updateZoom() {
+    const mediaStreamTrack = stream.getVideoTracks()[0];
+    mediaStreamTrack.applyConstraints({ advanced: [{ zoom: zoomSlider.value }] })
+        .catch(error => console.error('applyConstraints() error:', error));
 }
 
 function captureImage() {
-    try {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
-        
-        // Stop the video stream
-        stream.getTracks().forEach(track => track.stop());
-        video.srcObject = null;
-        
-        scanButton.textContent = 'Scan Recharge Card';
-        scanButton.removeEventListener('click', captureImage);
-        scanButton.addEventListener('click', startScanning);
-        
-        performOCR(imageDataUrl);
-    } catch (err) {
-        handleError('Error capturing image', err);
-    }
+    imageCapture.takePhoto()
+        .then(blob => {
+            capturedImage.src = URL.createObjectURL(blob);
+            capturedImage.style.display = 'block';
+            capturedImage.onload = () => { URL.revokeObjectURL(capturedImage.src); }
+            performOCR(blob);
+        })
+        .catch(error => handleError('Error capturing image', error));
 }
 
-async function performOCR(imageDataUrl) {
+async function performOCR(blob) {
     resultText.textContent = 'Processing...';
     loadingIndicator.style.display = 'inline-block';
     dialButton.disabled = true;
     clearResultsButton.style.display = 'none';
     
     try {
+        const imageBitmap = await createImageBitmap(blob);
+        canvas.width = imageBitmap.width;
+        canvas.height = imageBitmap.height;
+        canvas.getContext('2d').drawImage(imageBitmap, 0, 0);
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
         const result = await Tesseract.recognize(imageDataUrl, 'eng', {
             logger: m => console.log(m)
         });
