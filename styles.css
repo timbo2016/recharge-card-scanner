@@ -107,6 +107,7 @@ input[type="tel"]:focus {
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 10; /* Ensure buttons are on top */
 }
 
 .primary-button {
@@ -185,6 +186,7 @@ input[type="tel"]:focus {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-left: 10px;
+    z-index: 5; /* Ensure loading indicator is below buttons */
 }
 
 @keyframes spin {
