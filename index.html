@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Recharge Card Scanner</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <script src='https://unpkg.com/tesseract.js@v2.1.0/dist/tesseract.min.js'></script>
 </head>
@@ -12,42 +11,18 @@
     <div id="app">
         <h1>Recharge Scanner</h1>
         <div class="input-group">
-            <i class="fas fa-mobile-alt"></i>
             <input type="tel" id="mobileNumber" placeholder="Enter mobile number" inputmode="tel">
-            <button id="clearMobile" class="clear-btn"><i class="fas fa-times"></i></button>
+            <button id="clearMobile">Clear</button>
         </div>
         <div class="button-group">
-            <button id="startButton" class="primary-button">
-                <i class="fas fa-video"></i> Start Camera
-            </button>
-            <button id="captureButton" class="primary-button" disabled>
-                <i class="fas fa-camera"></i> Capture Image
-            </button>
-            <button id="dialButton" class="primary-button" disabled>
-                <i class="fas fa-phone"></i> Dial USSD
-            </button>
-            <button id="clearResultsButton" class="secondary-button">
-                <i class="fas fa-trash"></i> Clear Results
-            </button>
+            <button id="startButton">Start Camera</button>
+            <button id="captureButton" disabled>Capture Image</button>
+            <button id="dialButton" disabled>Dial USSD</button>
+            <button id="clearResultsButton">Clear Results</button>
         </div>
         <div id="videoContainer">
             <video id="video" playsinline autoplay></video>
-            <canvas id="canvas"></canvas>
-        </div>
-        <div id="cameraControls">
-            <select id="cameraSelect"></select>
-            <div>
-                <label for="zoomSlider">Zoom:</label>
-                <input type="range" id="zoomSlider" min="100" max="500" step="10" value="100">
-            </div>
-            <div>
-                <label for="brightnessSlider">Brightness:</label>
-                <input type="range" id="brightnessSlider" min="0" max="200" step="10" value="100">
-            </div>
-            <div>
-                <label for="contrastSlider">Contrast:</label>
-                <input type="range" id="contrastSlider" min="0" max="200" step="10" value="100">
-            </div>
+            <canvas id="canvas" style="display:none;"></canvas>
         </div>
         <div id="scanResult">
             <p id="resultText"></p>

@@ -9,10 +9,6 @@ const mobileNumberInput = document.getElementById('mobileNumber');
 const clearMobileButton = document.getElementById('clearMobile');
 const loadingIndicator = document.getElementById('loadingIndicator');
 const capturedImage = document.getElementById('capturedImage');
-const cameraSelect = document.getElementById('cameraSelect');
-const zoomSlider = document.getElementById('zoomSlider');
-const brightnessSlider = document.getElementById('brightnessSlider');
-const contrastSlider = document.getElementById('contrastSlider');
 
 let stream = null;
 let imageCapture = null;
@@ -24,36 +20,43 @@ dialButton.addEventListener('click', dialUSSD);
 clearResultsButton.addEventListener('click', clearResults);
 clearMobileButton.addEventListener('click', () => clearInput(mobileNumberInput));
 mobileNumberInput.addEventListener('input', updateDialButtonState);
-cameraSelect.addEventListener('change', switchCamera);
-zoomSlider.addEventListener('input', updateCameraSettings);
-brightnessSlider.addEventListener('input', updateCameraSettings);
-contrastSlider.addEventListener('input', updateCameraSettings);
 
 async function startCamera() {
     try {
         const constraints = {
             video: {
-                facingMode: 'environment',
+                facingMode: { ideal: 'environment' },
                 width: { ideal: 1280 },
                 height: { ideal: 720 }
             }
         };
 
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } else if (navigator.getUserMedia) {
+            stream = await new Promise((resolve, reject) => {
+                navigator.getUserMedia(constraints, resolve, reject);
+            });
+        } else if (navigator.webkitGetUserMedia) {
+            stream = await new Promise((resolve, reject) => {
+                navigator.webkitGetUserMedia(constraints, resolve, reject);
+            });
+        } else if (navigator.mozGetUserMedia) {
+            stream = await new Promise((resolve, reject) => {
+                navigator.mozGetUserMedia(constraints, resolve, reject);
+            });
+        } else {
+            throw new Error('getUserMedia is not supported in this browser');
+        }
+
         video.srcObject = stream;
-        video.play();
+        await video.play();
 
         const track = stream.getVideoTracks()[0];
         imageCapture = new ImageCapture(track);
 
         startButton.disabled = true;
         captureButton.disabled = false;
-        updateCameraCapabilities();
-
-        // Enumerate devices after successfully starting the camera
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        populateCameraSelect(videoDevices);
 
         console.log('Camera started successfully');
     } catch (error) {
@@ -62,67 +65,22 @@ async function startCamera() {
     }
 }
 
-function populateCameraSelect(cameras) {
-    cameraSelect.innerHTML = '';
-    cameras.forEach(camera => {
-        const option = document.createElement('option');
-        option.value = camera.deviceId;
-        option.text = camera.label || `Camera ${cameraSelect.length + 1}`;
-        cameraSelect.appendChild(option);
-    });
-}
-
-async function switchCamera() {
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-    }
-    await startCamera();
-}
-
-async function updateCameraCapabilities() {
-    const track = imageCapture.track;
-    const capabilities = track.getCapabilities();
-    const settings = track.getSettings();
-    
-    if ('zoom' in capabilities) {
-        zoomSlider.min = capabilities.zoom.min;
-        zoomSlider.max = capabilities.zoom.max;
-        zoomSlider.step = capabilities.zoom.step;
-        zoomSlider.value = settings.zoom;
-        zoomSlider.disabled = false;
-    } else {
-        zoomSlider.disabled = true;
-    }
-
-    // Brightness and contrast are not typically available as camera settings
-    brightnessSlider.disabled = true;
-    contrastSlider.disabled = true;
-}
-
-async function updateCameraSettings() {
-    const track = imageCapture.track;
-    const settings = {};
-
-    if (!track.getCapabilities().zoom) {
-        zoomSlider.disabled = true;
-    } else {
-        settings.zoom = parseFloat(zoomSlider.value);
-    }
-
-    try {
-        await track.applyConstraints({ advanced: [settings] });
-    } catch (error) {
-        console.error('Error applying camera settings:', error);
-    }
-}
-
 async function captureImage() {
     try {
-        const blob = await imageCapture.takePhoto();
-        capturedImage.src = URL.createObjectURL(blob);
+        let imageBlob;
+        if (imageCapture && imageCapture.takePhoto) {
+            imageBlob = await imageCapture.takePhoto();
+        } else {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+        }
+        
+        capturedImage.src = URL.createObjectURL(imageBlob);
         capturedImage.style.display = 'block';
         capturedImage.onload = () => URL.revokeObjectURL(capturedImage.src);
-        performOCR(blob);
+        performOCR(imageBlob);
     } catch (error) {
         console.error('Error capturing image:', error);
         showError('Failed to capture image. Please try again.');
@@ -159,7 +117,6 @@ async function performOCR(blob) {
 }
 
 function extractRechargeKey(text) {
-    // Adjust this regex pattern based on your specific recharge key format
     const match = text.match(/\b\d{12,16}\b/);
     return match ? match[0] : null;
 }
@@ -189,7 +146,6 @@ function validateInputs(rechargeKey, mobileNumber) {
         return false;
     }
     
-    // Validate phone number format: 077xxxxxxx or 078xxxxxxx
     const phoneNumberPattern = /^(077|078)\d{7}$/;
     if (!phoneNumberPattern.test(mobileNumber)) {
         showError('Invalid mobile number. Please enter a valid number in the format 077xxxxxxx or 078xxxxxxx.');
@@ -203,25 +159,6 @@ function updateDialButtonState() {
     const mobileNumber = mobileNumberInput.value.trim();
     const isDialButtonEnabled = rechargeKey && mobileNumber && /^(077|078)\d{7}$/.test(mobileNumber);
     dialButton.disabled = !isDialButtonEnabled;
-    console.log(`Dial button state updated: ${isDialButtonEnabled ? 'enabled' : 'disabled'}`);
-    clearResultsButton.style.display = rechargeKey ? 'block' : 'none';
-}
-
-function handleError(message, error) {
-    console.error(`${message}:`, error);
-    let errorMessage = `${message}. `;
-    if (error.name === 'NotAllowedError') {
-        errorMessage += 'Camera permission was denied. Please grant camera access and try again.';
-    } else if (error.name === 'NotFoundError') {
-        errorMessage += 'No camera found on your device.';
-    } else if (error.name === 'NotReadableError') {
-        errorMessage += 'Camera is already in use by another application.';
-    } else if (error.name === 'OverconstrainedError') {
-        errorMessage += 'Camera does not satisfy the resolution constraints.';
-    } else {
-        errorMessage += `Error: ${error.message}`;
-    }
-    showError(errorMessage);
 }
 
 function showError(message) {
@@ -242,17 +179,15 @@ function clearResults() {
     updateDialButtonState();
 }
 
-// Check for camera support when the page loads
 window.addEventListener('load', checkCameraSupport);
 
 function checkCameraSupport() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices && !navigator.getUserMedia && !navigator.webkitGetUserMedia && !navigator.mozGetUserMedia) {
         showError('Your browser does not support camera access. Please use a modern browser.');
         startButton.disabled = true;
     }
 }
 
-// Prevent zooming on double-tap for iOS devices
 let lastTouchEnd = 0;
 document.addEventListener('touchend', function(event) {
     const now = (new Date()).getTime();
