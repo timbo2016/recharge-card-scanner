@@ -21,6 +21,72 @@ clearResultsButton.addEventListener('click', clearResults);
 clearMobileButton.addEventListener('click', () => clearInput(mobileNumberInput));
 mobileNumberInput.addEventListener('input', updateDialButtonState);
 
+// New event listeners
+resolutionSelect.addEventListener('change', updateResolution);
+zoomSlider.addEventListener('input', updateZoom);
+
+function checkTesseractAvailability() {
+    if (typeof Tesseract === 'undefined') {
+        console.error('Tesseract is not defined. Make sure the library is properly loaded.');
+        showError('OCR library not loaded. Please refresh the page or check your internet connection.');
+        return false;
+    }
+    return true;
+}
+
+async function performOCR(blob) {
+    if (!checkTesseractAvailability()) return;
+
+    resultText.textContent = 'Processing...';
+    loadingIndicator.style.display = 'inline-block';
+    dialButton.disabled = true;
+
+    try {
+        console.log('Starting OCR process...');
+        const result = await Tesseract.recognize(blob, 'eng', {
+            logger: m => console.log('Tesseract log:', m),
+            tessedit_char_whitelist: '0123456789',
+            tessedit_pageseg_mode: '6' // Assume a single uniform block of text
+        });
+        
+        console.log('OCR Result:', result.data.text);
+        const text = result.data.text.trim();
+        rechargeKey = extractRechargeKey(text);
+        
+        if (rechargeKey) {
+            resultText.textContent = `Recharge Key: ${rechargeKey}`;
+            updateDialButtonState();
+        } else {
+            resultText.textContent = 'No valid recharge key found. Please try again.';
+            resultText.textContent += `\n\nDebug Info:\nDetected Text: ${text}`;
+            dialButton.disabled = true;
+        }
+    } catch (error) {
+        console.error('OCR Error:', error);
+        showError(`Failed to process the image. Error: ${error.message}`);
+        dialButton.disabled = true;
+    } finally {
+        loadingIndicator.style.display = 'none';
+    }
+}
+
+function extractRechargeKey(text) {
+    console.log('Extracting recharge key from:', text);
+    // Remove all non-digit characters
+    const digitsOnly = text.replace(/\D/g, '');
+    console.log('Digits extracted:', digitsOnly);
+
+    // Look for sequences of 12 to 16 digits
+    const matches = digitsOnly.match(/\d{12,16}/g);
+    console.log('Potential recharge keys:', matches);
+
+    if (matches && matches.length > 0) {
+        // Return the first match (you might want to refine this logic)
+        return matches[0];
+    }
+    return null;
+}
+
 async function startCamera() {
     try {
         const constraints = {
@@ -58,6 +124,7 @@ async function startCamera() {
         startButton.disabled = true;
         captureButton.disabled = false;
 
+        updateCameraCapabilities();
         console.log('Camera started successfully');
     } catch (error) {
         console.error('Error starting camera:', error);
@@ -65,11 +132,63 @@ async function startCamera() {
     }
 }
 
+async function updateCameraCapabilities() {
+    const track = stream.getVideoTracks()[0];
+    const capabilities = track.getCapabilities();
+    const settings = track.getSettings();
+
+    // Update resolution options
+    if (capabilities.width && capabilities.height) {
+        resolutionSelect.innerHTML = '';
+        const resolutions = [
+            { width: 640, height: 480 },
+            { width: 1280, height: 720 },
+            { width: 1920, height: 1080 }
+        ];
+        resolutions.forEach(res => {
+            if (res.width <= capabilities.width.max && res.height <= capabilities.height.max) {
+                const option = document.createElement('option');
+                option.value = `${res.width}x${res.height}`;
+                option.text = `${res.width}x${res.height}`;
+                resolutionSelect.add(option);
+            }
+        });
+        resolutionSelect.value = `${settings.width}x${settings.height}`;
+    } else {
+        resolutionSelect.disabled = true;
+    }
+
+    if (capabilities.zoom) {
+        zoomSlider.min = capabilities.zoom.min;
+        zoomSlider.max = capabilities.zoom.max;
+        zoomSlider.step = capabilities.zoom.step;
+        zoomSlider.value = settings.zoom;
+        zoomSlider.disabled = false;
+    } else {
+        zoomSlider.disabled = true;
+    }
+}
+
+async function updateResolution() {
+    const [width, height] = resolutionSelect.value.split('x').map(Number);
+    const track = stream.getVideoTracks()[0];
+    await track.applyConstraints({ width, height });
+}
+
+async function updateZoom() {
+    const track = stream.getVideoTracks()[0];
+    await track.applyConstraints({ advanced: [{ zoom: Number(zoomSlider.value) }] });
+}
+
 async function captureImage() {
     try {
         let imageBlob;
         if (imageCapture && imageCapture.takePhoto) {
-            imageBlob = await imageCapture.takePhoto();
+            const photoSettings = {
+                imageHeight: Number(resolutionSelect.value.split('x')[1]),
+                imageWidth: Number(resolutionSelect.value.split('x')[0])
+            };
+            imageBlob = await imageCapture.takePhoto(photoSettings);
         } else {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;

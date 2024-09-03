@@ -28,7 +28,7 @@ body {
 }
 
 #app {
-    max-width: 400px;
+    max-width: 600px;
     width: 100%;
     background-color: var(--white);
     border-radius: 20px;
@@ -90,7 +90,7 @@ input[type="tel"]:focus {
 
 .button-group {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 20px;
 }
@@ -102,6 +102,7 @@ input[type="tel"]:focus {
     font-size: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
+    flex: 1;
 }
 
 .primary-button {
@@ -161,6 +162,22 @@ input[type="tel"]:focus {
     display: none;
 }
 
+#cameraControls {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#cameraControls label {
+    font-weight: bold;
+}
+
+#cameraControls select,
+#cameraControls input[type="range"] {
+    width: 100%;
+}
+
 #scanResult {
     margin-top: 20px;
     text-align: center;
@@ -180,7 +197,6 @@ input[type="tel"]:focus {
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-left: 10px;
-    z-index: 5; /* Ensure loading indicator is below buttons */
 }
 
 @keyframes spin {
@@ -190,6 +206,12 @@ input[type="tel"]:focus {
 
 .error {
     color: var(--error-color);
+}
+
+#capturedImage {
+    max-width: 100%;
+    border-radius: 10px;
+    margin-top: 20px;
 }
 
 @media (max-width: 480px) {
