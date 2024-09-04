@@ -31,15 +31,9 @@
             <label for="qualitySlider">Image Quality:</label>
             <input type="range" id="qualitySlider" min="0" max="100" step="1" value="92">
         </div>
-        <div id="videoContainer">
-            <video id="video" playsinline autoplay></video>
-            <canvas id="canvas" style="display:none;"></canvas>
-        </div>
-        <div id="scanResult">
-            <p id="resultText"></p>
-            <div id="loadingIndicator" class="loading" style="display: none;"></div>
-        </div>
-        <img id="capturedImage" alt="Captured Image" style="display: none;">
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;">
+        <button id="openCameraButton">Open Camera</button>
+        <img id="capturedImage" alt="Captured Image" style="display: none; max-width: 100%;">
         <img id="debugImage" alt="Preprocessed Image" style="display: none;">
     </div>
     <script>
