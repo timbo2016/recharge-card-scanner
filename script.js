@@ -45,8 +45,10 @@ async function performOCR(blob) {
         console.log('Starting OCR process...');
         const result = await Tesseract.recognize(blob, 'eng', {
             logger: m => console.log('Tesseract log:', m),
-            tessedit_char_whitelist: '0123456789',
-            tessedit_pageseg_mode: '6' // Assume a single uniform block of text
+            tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
+            tessedit_pageseg_mode: '6', // Assume a single uniform block of text
+            preprocess_type: '3', // More aggressive preprocessing
+            image_preprocessing_type: '2', // Additional image preprocessing
         });
         
         console.log('OCR Result:', result.data.text);
@@ -57,7 +59,7 @@ async function performOCR(blob) {
             resultText.textContent = `Recharge Key: ${rechargeKey}`;
             updateDialButtonState();
         } else {
-            resultText.textContent = 'No valid recharge key found. Please try again.';
+            resultText.textContent = 'No valid 17-digit recharge key found. Please try again.';
             resultText.textContent += `\n\nDebug Info:\nDetected Text: ${text}`;
             dialButton.disabled = true;
         }
@@ -72,18 +74,62 @@ async function performOCR(blob) {
 
 function extractRechargeKey(text) {
     console.log('Extracting recharge key from:', text);
-    // Remove all non-digit characters
-    const digitsOnly = text.replace(/\D/g, '');
-    console.log('Digits extracted:', digitsOnly);
+    
+    // Define common OCR misreadings
+    const substitutions = {
+        'O': '0', 'o': '0', 'Q': '0', 'D': '0',
+        'I': '1', 'l': '1', 'i': '1',
+        'Z': '2', 'z': '2',
+        'A': '4',
+        'S': '5', 's': '5',
+        'G': '6', 'b': '6',
+        'T': '7',
+        'B': '8',
+        'g': '9', 'q': '9'
+    };
 
-    // Look for sequences of 12 to 16 digits
-    const matches = digitsOnly.match(/\d{12,16}/g);
-    console.log('Potential recharge keys:', matches);
-
-    if (matches && matches.length > 0) {
-        // Return the first match (you might want to refine this logic)
-        return matches[0];
+    // Function to apply substitutions
+    function applySubstitutions(str) {
+        return str.split('').map(char => substitutions[char] || char).join('');
     }
+
+    // Clean and normalize the text
+    const cleanedText = text.replace(/[^0-9A-Za-z]/g, '');
+    const normalizedText = applySubstitutions(cleanedText);
+
+    console.log('Normalized text:', normalizedText);
+
+    // Look for exact 17-digit sequences
+    const exactMatches = normalizedText.match(/\d{17}/g) || [];
+    if (exactMatches.length > 0) {
+        console.log('Found exact 17-digit match:', exactMatches[0]);
+        return exactMatches[0];
+    }
+
+    // If no exact match, look for close matches
+    const closeMatches = normalizedText.match(/\d{15,19}/g) || [];
+    console.log('Close matches:', closeMatches);
+
+    // Filter and sort close matches
+    const potentialKeys = closeMatches
+        .filter(match => Math.abs(match.length - 17) <= 2) // Allow for 15-19 digit sequences
+        .sort((a, b) => Math.abs(a.length - 17) - Math.abs(b.length - 17)); // Sort by closeness to 17 digits
+
+    if (potentialKeys.length > 0) {
+        const bestMatch = potentialKeys[0];
+        console.log('Best potential match:', bestMatch);
+        
+        // If it's not exactly 17 digits, pad or trim as necessary
+        if (bestMatch.length < 17) {
+            return bestMatch.padEnd(17, '0');
+        } else if (bestMatch.length > 17) {
+            return bestMatch.slice(0, 17);
+        } else {
+            return bestMatch;
+        }
+    }
+
+    console.log('No valid recharge key found');
     return null;
 }
 
@@ -92,8 +138,8 @@ async function startCamera() {
         const constraints = {
             video: {
                 facingMode: { ideal: 'environment' },
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                width: { ideal: 640 },
+                height: { ideal: 480 }
             }
         };
 
@@ -204,40 +250,6 @@ async function captureImage() {
         console.error('Error capturing image:', error);
         showError('Failed to capture image. Please try again.');
     }
-}
-
-async function performOCR(blob) {
-    resultText.textContent = 'Processing...';
-    loadingIndicator.style.display = 'inline-block';
-    dialButton.disabled = true;
-
-    try {
-        const result = await Tesseract.recognize(blob, 'eng', {
-            logger: m => console.log(m)
-        });
-        
-        const text = result.data.text.trim();
-        rechargeKey = extractRechargeKey(text);
-        
-        if (rechargeKey) {
-            resultText.textContent = `Recharge Key: ${rechargeKey}`;
-            updateDialButtonState();
-        } else {
-            resultText.textContent = 'No valid recharge key found. Please try again.';
-            dialButton.disabled = true;
-        }
-    } catch (error) {
-        console.error('OCR Error:', error);
-        showError('Failed to process the image. Please try again.');
-        dialButton.disabled = true;
-    } finally {
-        loadingIndicator.style.display = 'none';
-    }
-}
-
-function extractRechargeKey(text) {
-    const match = text.match(/\b\d{12,16}\b/);
-    return match ? match[0] : null;
 }
 
 function dialUSSD() {

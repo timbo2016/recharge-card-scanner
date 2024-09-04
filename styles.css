@@ -159,7 +159,7 @@ input[type="tel"]:focus {
 }
 
 #cameraControls {
-    margin-top: 20px;
+    margin-top: 5px;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -172,7 +172,7 @@ input[type="tel"]:focus {
 
 #cameraControls select,
 #cameraControls input[type="range"] {
-    width: 100%;
+    width: 75%;
     padding: 8px; /* Added padding for better touch targets */
     border-radius: 5px; /* Added border-radius for consistency */
     border: 1px solid var(--light-gray); /* Added border for better visibility */
